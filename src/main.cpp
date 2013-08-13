@@ -10,6 +10,9 @@
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 using namespace std;
+const uint32_t MAX_TOF = 10;//4999;
+const uint32_t MAX_DET = 14;//6400;
+const uint32_t BIN_DET = 7;//80;
 
 typedef struct __MODULEEVT{
   uint8_t psd;
@@ -45,23 +48,23 @@ typedef struct __EOP{
 }EndOfPulse;
 
 uint32_t MapIdx(uint32_t tofidx, uint32_t detidx){
-  return tofidx*6400+detidx;
+  return tofidx*MAX_DET+detidx;
 }
 
 uint32_t TofIdx(uint32_t mapidx){
-  return mapidx/6400;
+  return mapidx/MAX_DET;
 }
 
 uint32_t DetIdx(uint32_t mapidx){
-  return mapidx%6400;
+  return mapidx%MAX_DET;
 }
 
 uint8_t PSDIdx(uint32_t detidx){
-  return detidx/80;
+  return detidx/BIN_DET;
 }
 
 uint8_t PosIdx(uint32_t detidx){
-  return detidx%80;
+  return detidx%BIN_DET;
 }
 
 void Encode_PulseHeader(Pulse_Header* pulseHeader, uint8_t *type, uint8_t *module, uint32_t *subsecond){
@@ -144,6 +147,24 @@ void SaveEOPToBinaryFile(ofstream& fout){
   fout.write((char*)eop, sizeof(EndOfPulse));
   delete eop;
 }
+
+uint32_t Get_PositionID(uint32_t qa, uint32_t qb){
+  if ((qa+qb)<1){
+    //std::cout << "qa " << qa << " qb " << qb << std::endl;
+    return 0;
+  }
+  double R = (double)qa/(qa+qb);
+  double P = R*BIN_DET;
+  int IntP = (uint32_t)P;
+  double D = P - IntP;
+  if(D>0.5){
+    return (IntP + 1);
+  }
+  else{
+    return IntP;
+  }
+}
+
 void SaveBinaryFile(uint32_t *cmap){
   std::cout << "SaveBinaryFile" << std::endl;
   std::ofstream fout("hh", std::ios::binary); 
@@ -162,53 +183,79 @@ void SaveBinaryFile(uint32_t *cmap){
   /*----------------------------------------------*/
   srand((int)time(0));
   std::cout << "SaveEvent" << std::endl;
-  for(int i=0; i < 5000 ; i++){
-    //std::cout << "Save tof " << i << std::endl;
+  for(int i=0; i < MAX_TOF ; i++){
     uint32_t TOF = i;
-    for(int j=0; j < 6400 ; j++){
+    for(int j=0; j < MAX_DET ; j++){
       uint8_t PSD = PSDIdx(j);
       uint8_t pos = PosIdx(j);
-      double R = pos/80.0;
-      if (cmap[MapIdx(i,j)]>0)
-	std::cout << "i " << i << " j " << j << " count " << cmap[MapIdx(i,j)] << std::endl;
+      double R = ((double)pos)/BIN_DET;
+      //std::cout << "(" <<(int)PSD << "/" << (int)pos << "/" << (int)TOF << ") ";
       for(int k=0;k<cmap[MapIdx(i,j)];k++){
-	uint32_t QA = rand()%16300;
-	uint32_t QB = QA*(1-R)/R;
-	//std::cout << "pos " << (uint32_t)pos << " R " << R << " QA " 
-	//  << QA << " QB " << QB << " TOF " << TOF << " PSD " << (uint32_t)PSD << std::endl;
+	uint32_t QB = 0;
+	uint32_t QA = 0;
+	if(R<0.5){
+	  QB = (rand()%1024+1);
+	  QA = R*QB/(1-R);
+	}
+	else{
+	  QA = (rand()%1024+1);
+	  QB = QA*(1-R)/R;
+	}
+	//std::cout << "pos " << (int)pos << " getpos " << Get_PositionID(QA,QB)<< std::endl;
+	if(pos!=Get_PositionID(QA,QB)){
+	  std::cout << "pos " << (int)pos  << " double " << (double)pos << " R " << R 
+	    << " QA " << QA << " QB " << QB <<" GetPos " << Get_PositionID(QA,QB) << std::endl;
+	}
 	SaveEventToBinaryFile(fout, &PSD, &TOF, &QA, &QB);
       }
     }
+   // std::cout << std::endl;
   }
-  //for (uint32_t i = 0; i < 50; i++){
-  //  uint32_t TOF = 1+i*100;//rand();
-  //  uint32_t QA  = 2+i*100;//rand();
-  //  uint32_t QB  = 3+i*100;//rand();
-  //  uint8_t  PSD = 0x8;
-
-  //}
   SaveEOPToBinaryFile(fout);
 
 
   /*----------------------------------------------*/
   fout.close();
 }
-void Decode_RawDataSegment(uint64_t *Buff, uint32_t size, uint8_t *flag){
+
+void Map_EventToDetector(uint32_t *dmap, uint32_t *module, uint32_t *psd, uint32_t *tof, uint32_t *qa, uint32_t *qb){
+  uint32_t pos_id = Get_PositionID(*qa, *qb);
+  uint32_t det_id = (*psd) * BIN_DET + pos_id;
+  uint32_t id = (*tof) * MAX_DET + det_id;
+  //std::cout << "(" << *psd << "/" << pos_id << "/" << det_id << "/" << *tof << "/"<<id << ")" << std::endl;
+  dmap[id] += 1;
+  //std::cout << " Map Event: module " << *module << " psd " << *psd 
+  //  << " tof " << *tof << " qa "  << *qa << " qb " << *qb  
+  //  << " pos id " << pos_id  << " det id " << det_id 
+  //  << " Matrix " << id << std::endl; 
+}
+
+void PrintDMap(uint32_t *dmap){
+  std::ofstream outfile("txt");
+  for (uint32_t i = 0; i < MAX_TOF; i++ ){
+    for (uint32_t j = 0; j < MAX_DET; j++ ){
+      outfile << dmap[i*MAX_DET+j] << ";";
+    }
+    outfile << std::endl;
+  }
+}
+
+void Decode_RawDataSegment(uint64_t *Buff, uint32_t *dmap, uint32_t size, uint8_t *flag){
   std::cout << "Enter Decode_RawDataSegment(), buffer size: " << size << std::endl;
   uint64_t *ReadRawData;// = new uint8_t[8]; 
+  time_t second;
+  uint32_t type, module, subsecond;
   for (uint32_t i = 0; i < size ; i++ ){
     ReadRawData = (uint64_t*)(Buff+i);
     //std::cout << "idx " << i << " " << std::hex << *ReadRawData << std::endl;// << std::endl;
     //std::cout << "zzz: " << std::hex << *ReadRawData << std::endl;
     if ((((*ReadRawData)>>56) == 0x0) && (*flag == 0))  {
-      uint32_t type, module, subsecond;
       Decode_PulseHeader(ReadRawData, &type, &module, &subsecond);
       std::cout << " Header: type " << type << " module  " << module << " subsecond " << subsecond << std::endl;
       *flag = 1;
     }
     else if (*flag == 1){
       //int64_t second;
-      time_t second;
       Decode_PulseTime(ReadRawData, &second);
       std::cout << " Time: second " << second  <<" "<< ctime((time_t*)&second)    <<  std::endl; 
       *flag = 2; 
@@ -221,17 +268,20 @@ void Decode_RawDataSegment(uint64_t *Buff, uint32_t size, uint8_t *flag){
     else if ((*flag == 2)||(*flag == 3)){
       uint32_t psd, tof, qa, qb;
       Decode_Event(ReadRawData, &psd, &tof, &qa, &qb);
-      //std::cout << " Event: psd " << psd << " tof " << (uint32_t)tof << " qa "  << qa << " qb " << qb    << std::endl; 
+      if ((qa+qb)<1){
+	std::cout << "decode qa " << qa << " qb " << qb << std::endl;
+      }
+      Map_EventToDetector(dmap, &module,&psd, &tof, &qa, &qb );
       *flag = 3;
     }
   }
 }
 
 
-void LoadBinaryFile(){
+void LoadBinaryFile(uint32_t *dmap){
 
   /*----------------------------------------------*/
-  uint32_t size = 100000000;
+  uint32_t size = 1000;
   uint8_t *flag = new uint8_t;
   *flag = 0;
   size_t buffsize = 0; 
@@ -239,17 +289,17 @@ void LoadBinaryFile(){
   std::ifstream fin("hh", std::ios::binary);
   fin.read((char*)Buff, sizeof(uint64_t)*size);
   buffsize = fin.gcount();  
-  Decode_RawDataSegment(Buff, size, flag);
+  Decode_RawDataSegment(Buff, dmap, size, flag);
   while (buffsize == (sizeof(uint64_t)*size)){
     std::cout << "LoadBinaryFile " << fin.gcount() << std::endl;
     fin.read((char*)Buff, sizeof(uint64_t)*size);
     buffsize = fin.gcount();  
     if ((sizeof(uint64_t)*size) == buffsize ){
-      //Decode_RawDataSegment(Buff, size, flag);
+      Decode_RawDataSegment(Buff, dmap, size, flag);
     }
     else{
       std::cout << "Read file " << buffsize/(sizeof(uint64_t)) << std::endl;
-      Decode_RawDataSegment(Buff, buffsize/(sizeof(uint64_t)), flag);
+      Decode_RawDataSegment(Buff, dmap, buffsize/(sizeof(uint64_t)), flag);
     }
   }
   delete flag;
@@ -261,34 +311,32 @@ void LoadBinaryFile(){
 
 
 void LoadSimulationFile(uint32_t* cmap){
-  std::ifstream samplefile("/home/tianhl/workarea/CSNS_SANS_SIM/sample/sans_run/sample_sans_D.txt");
+
+  std::cout << "LoadSimulationFile "<< std::endl;
+  //std::ifstream samplefile("/home/tianhl/workarea/CSNS_SANS_SIM/sample/sans_run/sample_sans_D.txt");
+  std::ifstream samplefile("/home/tianhl/workarea/CSNS_SANS_SIM/app/test/test_raw");
   string samplebuff;
   getline(samplefile, samplebuff);
-  vector<uint32_t> tofvector;
+  uint32_t tot=0;
 
-  for (int tofidx=0;tofidx<5000 ;tofidx++){
+  for (int tofidx=0;tofidx<MAX_TOF ;tofidx++){
     getline(samplefile, samplebuff);
     vector<string> substring;
     vector<double> counts;
     //boost::split( substring, samplebuff, boost::is_any_of( "\t " ), boost::token_compress_on );
     boost::split( substring, samplebuff, boost::is_any_of( ";" ), boost::token_compress_on );
-    tofvector.push_back(atoi((*substring.begin()).c_str()));
-    for(uint32_t detidx = 1; detidx < substring.size(); detidx++){
-      cmap[MapIdx(tofidx, detidx)] =(int)(atof(substring[detidx].c_str())/10);
-      //      if (atof(substring[detidx].c_str())>0.1)
-      //	cout << "count "<< substring[detidx] <<  std::endl;
+    //std::cout <<"Process Line " <<  tofidx << std::endl;
+    for(uint32_t detidx = 0; detidx < MAX_DET  ; detidx++){
+      //cmap[MapIdx(tofidx, detidx)] =(int)(atof(substring[detidx+1].c_str()))/10;
+      cmap[MapIdx(tofidx, detidx)] =(int)(atoi(substring[detidx+1].c_str()));
+//      std::cout << "tofidx " << tofidx << " detidx " << detidx 
+//	<< " MapIdx " << MapIdx(tofidx,detidx) << std::endl;
+//      std::cout << "rtof   " << TofIdx(MapIdx(tofidx,detidx))  
+//	<< " rdet   " << DetIdx(MapIdx(tofidx,detidx)) << std::endl;
+      tot+=(int)(atoi(substring[detidx+1].c_str()));
     }
-    //for( vector<double>::iterator it = counts.begin(); it != counts.end(); ++ it ){
-    //  std::cout <<"split " <<  *it << std::endl;
-    //}
-    // std::cout << idx << " " << counts[0] << std::endl;
   }
-
-  //for(vector<uint32_t>::iterator it = tofvector.begin(); it != tofvector.end(); ++ it){
-  //  std::cout << "tofchannel " << *it << std::endl;
-  //}
-
-
+  std::cout << "total neutron hit count: " << tot << std::endl;
 }
 
 int main(int argc, char *argv[])
@@ -297,10 +345,24 @@ int main(int argc, char *argv[])
   //    std::cout << "Usage: " << argv[0] << "  option.txt" << std::endl;
   //    return 1;
   //}
-  uint32_t *cmap = new uint32_t[80*80*5000];
-  //LoadSimulationFile(cmap); 
-  //SaveBinaryFile(cmap);
-  LoadBinaryFile();
+  uint32_t *cmap = new uint32_t[MAX_TOF*MAX_DET];
+  uint32_t *dmap = new uint32_t[MAX_TOF*MAX_DET];
+  LoadSimulationFile(cmap); 
+  //for (int i=0;i<MAX_TOF;i++){
+  //  for (int j=0;j<MAX_DET;j++){
+  //    std::cout << cmap[MapIdx(i,j)]<<" ";
+  //  }
+  //  std::cout<<std::endl;
+  //}
+  SaveBinaryFile(cmap);
+  LoadBinaryFile(dmap);
+  //for (int i=0;i<MAX_TOF;i++){
+  //  for (int j=0;j<MAX_DET;j++){
+  //    std::cout << dmap[MapIdx(i,j)]<<" ";
+  //  }
+  //  std::cout<<std::endl;
+  //}
+  PrintDMap(dmap);
 
 
 
