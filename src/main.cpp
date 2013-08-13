@@ -10,9 +10,17 @@
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 using namespace std;
-const uint32_t MAX_TOF = 10;//4999;
-const uint32_t MAX_DET = 14;//6400;
-const uint32_t BIN_DET = 7;//80;
+//const uint32_t MAX_TOF = 10;//4999;
+//const uint32_t MAX_DET = 14;//6400;
+//const uint32_t BIN_DET =  7;//80;
+
+const uint32_t MAX_TOF =4999;
+const uint32_t MAX_DET =6400;
+const uint32_t BIN_DET =80;
+int NxsMap[MAX_TOF][MAX_DET];
+double ErrMap[MAX_TOF][MAX_DET];
+int TofMap[MAX_TOF];
+int DetMap[MAX_DET];
 
 typedef struct __MODULEEVT{
   uint8_t psd;
@@ -110,10 +118,85 @@ void Encode_EOP(EndOfPulse* eop){
   eop->eop = 0xFF;
 }
 
-void SaveNexusFile(){
+void SaveNexusFile(uint32_t* dmap){
   /*----------------------------------------------*/
   NeXus::File file("test.nxs",NXACC_CREATE5);
-  file.makeGroup("entry","NXentry",true);
+  file.makeGroup("mantid_workspace_1","NXentry",true);
+
+  for(int i = 0; i< MAX_TOF; i++){
+    for(int j = 0; j< MAX_DET; j++){
+      NxsMap[i][j]=dmap[i*MAX_DET+j]; 
+    }
+  }
+  for(int i = 0; i< MAX_TOF; i++){
+    for(int j = 0; j< MAX_DET; j++){
+      ErrMap[i][j]=0.0; 
+    }
+  }
+  for(int i = 0; i < MAX_TOF; i++){
+    TofMap[i] = 4+i*8;
+  }
+  for(int i = 0; i < MAX_DET; i++){
+    DetMap[i] = i;
+  }
+  std::vector<int> dim;
+
+  const std::string definition = "Mantid Processed Workspace";
+  const std::string title = "Sample for test";
+
+  dim.clear();
+  dim.push_back(definition.length());
+
+  file.makeData("definition",NeXus::CHAR,dim,true);
+  file.putData(definition.c_str());
+  file.closeData();
+
+  file.makeData("definition_local",NeXus::CHAR,dim,true);
+  file.putData(definition.c_str());
+  file.closeData();
+
+  dim.clear();
+  dim.push_back(title.length());
+
+  file.makeData("title",NeXus::CHAR,dim,true);
+  file.putData(definition.c_str());
+  file.closeData();
+
+  //file.makeData("title",NeXus::CHAR,std::string("Sample for test").length(),true);
+  //file.putData("Sample for test");
+  //file.closeData();
+
+  file.makeGroup("workspace","NXentry",true);
+  dim.clear();
+  dim.push_back(MAX_TOF);
+  dim.push_back(MAX_DET);
+  file.makeData("values",NeXus::INT32,dim,true);
+  file.putData(NxsMap);
+  file.closeData();
+
+  dim.clear();
+  dim.push_back(MAX_TOF);
+  dim.push_back(MAX_DET);
+  file.makeData("errors",NeXus::FLOAT32,dim,true);
+  file.putData(ErrMap);
+  file.closeData();
+
+  dim.clear();
+  dim.push_back(MAX_TOF);
+  file.makeData("axis1",NeXus::INT32,dim,true);
+  file.putData(TofMap);
+  file.putAttr("units", "TOF");
+  file.closeData();
+
+  dim.clear();
+  dim.push_back(MAX_DET);
+  file.makeData("axis2",NeXus::INT32,dim,true);
+  file.putData(DetMap);
+  file.putAttr("units", "spectraNumber");
+  file.closeData();
+
+  //file.closeData();
+
   file.closeGroup();
 }
 
@@ -202,14 +285,14 @@ void SaveBinaryFile(uint32_t *cmap){
 	  QB = QA*(1-R)/R;
 	}
 	//std::cout << "pos " << (int)pos << " getpos " << Get_PositionID(QA,QB)<< std::endl;
-	if(pos!=Get_PositionID(QA,QB)){
-	  std::cout << "pos " << (int)pos  << " double " << (double)pos << " R " << R 
-	    << " QA " << QA << " QB " << QB <<" GetPos " << Get_PositionID(QA,QB) << std::endl;
-	}
+	//if(pos!=Get_PositionID(QA,QB)){
+	//  std::cout << "pos " << (int)pos  << " double " << (double)pos << " R " << R 
+	//    << " QA " << QA << " QB " << QB <<" GetPos " << Get_PositionID(QA,QB) << std::endl;
+	//}
 	SaveEventToBinaryFile(fout, &PSD, &TOF, &QA, &QB);
       }
     }
-   // std::cout << std::endl;
+    // std::cout << std::endl;
   }
   SaveEOPToBinaryFile(fout);
 
@@ -240,8 +323,9 @@ void PrintDMap(uint32_t *dmap){
   }
 }
 
-void Decode_RawDataSegment(uint64_t *Buff, uint32_t *dmap, uint32_t size, uint8_t *flag){
+uint64_t Decode_RawDataSegment(uint64_t *Buff, uint32_t *dmap, uint32_t size, uint8_t *flag){
   std::cout << "Enter Decode_RawDataSegment(), buffer size: " << size << std::endl;
+  uint64_t count = 0;
   uint64_t *ReadRawData;// = new uint8_t[8]; 
   time_t second;
   uint32_t type, module, subsecond;
@@ -268,6 +352,7 @@ void Decode_RawDataSegment(uint64_t *Buff, uint32_t *dmap, uint32_t size, uint8_
     else if ((*flag == 2)||(*flag == 3)){
       uint32_t psd, tof, qa, qb;
       Decode_Event(ReadRawData, &psd, &tof, &qa, &qb);
+      count += 1;
       if ((qa+qb)<1){
 	std::cout << "decode qa " << qa << " qb " << qb << std::endl;
       }
@@ -275,13 +360,15 @@ void Decode_RawDataSegment(uint64_t *Buff, uint32_t *dmap, uint32_t size, uint8_
       *flag = 3;
     }
   }
+  return count;
 }
 
 
 void LoadBinaryFile(uint32_t *dmap){
 
   /*----------------------------------------------*/
-  uint32_t size = 1000;
+  uint32_t size = 100000;
+  uint64_t count = 0;
   uint8_t *flag = new uint8_t;
   *flag = 0;
   size_t buffsize = 0; 
@@ -289,21 +376,22 @@ void LoadBinaryFile(uint32_t *dmap){
   std::ifstream fin("hh", std::ios::binary);
   fin.read((char*)Buff, sizeof(uint64_t)*size);
   buffsize = fin.gcount();  
-  Decode_RawDataSegment(Buff, dmap, size, flag);
+  count += Decode_RawDataSegment(Buff, dmap, size, flag);
   while (buffsize == (sizeof(uint64_t)*size)){
     std::cout << "LoadBinaryFile " << fin.gcount() << std::endl;
     fin.read((char*)Buff, sizeof(uint64_t)*size);
     buffsize = fin.gcount();  
     if ((sizeof(uint64_t)*size) == buffsize ){
-      Decode_RawDataSegment(Buff, dmap, size, flag);
+      count += Decode_RawDataSegment(Buff, dmap, size, flag);
     }
     else{
       std::cout << "Read file " << buffsize/(sizeof(uint64_t)) << std::endl;
-      Decode_RawDataSegment(Buff, dmap, buffsize/(sizeof(uint64_t)), flag);
+      count += Decode_RawDataSegment(Buff, dmap, buffsize/(sizeof(uint64_t)), flag);
     }
   }
   delete flag;
   //std::cout << " raw data: "<< (uint32_t)ReadRawData[2] << " " << sizeof(time_t) << " " << sizeof(uint32_t)<< std::endl;
+  std::cout << " Read Event Count " << count << std::endl;
 
 
   fin.close();
@@ -313,8 +401,8 @@ void LoadBinaryFile(uint32_t *dmap){
 void LoadSimulationFile(uint32_t* cmap){
 
   std::cout << "LoadSimulationFile "<< std::endl;
-  //std::ifstream samplefile("/home/tianhl/workarea/CSNS_SANS_SIM/sample/sans_run/sample_sans_D.txt");
-  std::ifstream samplefile("/home/tianhl/workarea/CSNS_SANS_SIM/app/test/test_raw");
+  std::ifstream samplefile("/home/tianhl/workarea/CSNS_SANS_SIM/sample/sans_run/sample_sans_D.txt");
+  //std::ifstream samplefile("/home/tianhl/workarea/CSNS_SANS_SIM/app/test/test_raw");
   string samplebuff;
   getline(samplefile, samplebuff);
   uint32_t tot=0;
@@ -327,12 +415,12 @@ void LoadSimulationFile(uint32_t* cmap){
     boost::split( substring, samplebuff, boost::is_any_of( ";" ), boost::token_compress_on );
     //std::cout <<"Process Line " <<  tofidx << std::endl;
     for(uint32_t detidx = 0; detidx < MAX_DET  ; detidx++){
-      //cmap[MapIdx(tofidx, detidx)] =(int)(atof(substring[detidx+1].c_str()))/10;
-      cmap[MapIdx(tofidx, detidx)] =(int)(atoi(substring[detidx+1].c_str()));
-//      std::cout << "tofidx " << tofidx << " detidx " << detidx 
-//	<< " MapIdx " << MapIdx(tofidx,detidx) << std::endl;
-//      std::cout << "rtof   " << TofIdx(MapIdx(tofidx,detidx))  
-//	<< " rdet   " << DetIdx(MapIdx(tofidx,detidx)) << std::endl;
+      cmap[MapIdx(tofidx, detidx)] =(int)(atof(substring[detidx+1].c_str()))/100;
+      //cmap[MapIdx(tofidx, detidx)] =(int)(atoi(substring[detidx+1].c_str()));
+      //      std::cout << "tofidx " << tofidx << " detidx " << detidx 
+      //	<< " MapIdx " << MapIdx(tofidx,detidx) << std::endl;
+      //      std::cout << "rtof   " << TofIdx(MapIdx(tofidx,detidx))  
+      //	<< " rdet   " << DetIdx(MapIdx(tofidx,detidx)) << std::endl;
       tot+=(int)(atoi(substring[detidx+1].c_str()));
     }
   }
@@ -347,14 +435,14 @@ int main(int argc, char *argv[])
   //}
   uint32_t *cmap = new uint32_t[MAX_TOF*MAX_DET];
   uint32_t *dmap = new uint32_t[MAX_TOF*MAX_DET];
-  LoadSimulationFile(cmap); 
+  //LoadSimulationFile(cmap); 
   //for (int i=0;i<MAX_TOF;i++){
   //  for (int j=0;j<MAX_DET;j++){
   //    std::cout << cmap[MapIdx(i,j)]<<" ";
   //  }
   //  std::cout<<std::endl;
   //}
-  SaveBinaryFile(cmap);
+  //SaveBinaryFile(cmap);
   LoadBinaryFile(dmap);
   //for (int i=0;i<MAX_TOF;i++){
   //  for (int j=0;j<MAX_DET;j++){
@@ -363,6 +451,7 @@ int main(int argc, char *argv[])
   //  std::cout<<std::endl;
   //}
   PrintDMap(dmap);
+  SaveNexusFile(dmap);
 
 
 
