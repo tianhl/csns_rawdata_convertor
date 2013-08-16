@@ -17,10 +17,13 @@ using namespace std;
 const uint32_t MAX_TOF =4999;
 const uint32_t MAX_DET =6400;
 const uint32_t BIN_DET =80;
-int NxsMap[MAX_TOF][MAX_DET];
-double ErrMap[MAX_TOF][MAX_DET];
+int    NxsMap[MAX_DET][MAX_TOF];
+double ErrMap[MAX_DET][MAX_TOF];
 int TofMap[MAX_TOF];
 int DetMap[MAX_DET];
+int DetCount[MAX_DET];
+int SpectraIdx[MAX_DET];
+double DetPositions[MAX_DET][3];
 
 typedef struct __MODULEEVT{
   uint8_t psd;
@@ -123,13 +126,13 @@ void SaveNexusFile(uint32_t* dmap){
   NeXus::File file("test.nxs",NXACC_CREATE5);
   file.makeGroup("mantid_workspace_1","NXentry",true);
 
-  for(int i = 0; i< MAX_TOF; i++){
-    for(int j = 0; j< MAX_DET; j++){
-      NxsMap[i][j]=dmap[i*MAX_DET+j]; 
+  for(int i = 0; i< MAX_DET; i++){
+    for(int j = 0; j< MAX_TOF; j++){
+      NxsMap[i][j]=dmap[j*MAX_DET+i]; 
     }
   }
-  for(int i = 0; i< MAX_TOF; i++){
-    for(int j = 0; j< MAX_DET; j++){
+  for(int i = 0; i< MAX_DET; i++){
+    for(int j = 0; j< MAX_TOF; j++){
       ErrMap[i][j]=0.0; 
     }
   }
@@ -168,15 +171,16 @@ void SaveNexusFile(uint32_t* dmap){
 
   file.makeGroup("workspace","NXentry",true);
   dim.clear();
-  dim.push_back(MAX_TOF);
   dim.push_back(MAX_DET);
+  dim.push_back(MAX_TOF);
   file.makeData("values",NeXus::INT32,dim,true);
   file.putData(NxsMap);
+  file.putAttr("signal","1");
   file.closeData();
 
   dim.clear();
-  dim.push_back(MAX_TOF);
   dim.push_back(MAX_DET);
+  dim.push_back(MAX_TOF);
   file.makeData("errors",NeXus::FLOAT32,dim,true);
   file.putData(ErrMap);
   file.closeData();
@@ -195,8 +199,125 @@ void SaveNexusFile(uint32_t* dmap){
   file.putAttr("units", "spectraNumber");
   file.closeData();
 
-  //file.closeData();
 
+  //close group: mantid_workspace_1/workspace
+  file.closeGroup();
+
+  file.makeGroup("instrument","NXentry",true);
+
+  const std::string instrument_source = "";
+  dim.clear();
+  dim.push_back(instrument_source.length());
+  file.makeData("instrment_source",NeXus::CHAR,dim,true);
+  file.putData(instrument_source.c_str());
+  file.closeData();
+
+  const std::string name = "";
+  dim.clear();
+  dim.push_back(name.length());
+  file.makeData("name",NeXus::CHAR,dim,true);
+  file.putData(name.c_str());
+  file.closeData();
+
+  for(int i = 0; i < MAX_DET; i++){
+    DetCount[i] = 1;
+  }
+  for(int i = 0; i < MAX_DET; i++){
+    SpectraIdx[i] = i+1;
+  }
+  for(int i = 0; i< MAX_DET; i++){
+    for(int j = 0; j< 3; j++){
+      DetPositions[i][j]=0.0; 
+    }
+  }
+
+  file.makeGroup("detector","NXentry",true);
+
+  dim.clear();
+  dim.push_back(MAX_DET);
+  file.makeData("detector_index",NeXus::INT32,dim,true);
+  file.putData(DetMap);
+  file.closeData();
+
+  file.makeData("detector_count",NeXus::INT32,dim,true);
+  file.putData(DetCount);
+  file.closeData();
+
+  file.makeData("detector_list",NeXus::INT32,dim,true);
+  file.putData(DetCount);
+  file.closeData();
+
+  file.makeData("spectra",NeXus::INT32,dim,true);
+  file.putData(SpectraIdx);
+  file.closeData();
+
+  dim.clear();
+  dim.push_back(MAX_DET);
+  dim.push_back(3);
+  file.makeData("detector_positions",NeXus::FLOAT32,dim,true);
+  file.putData(DetPositions);
+  file.closeData();
+
+
+  //close group: mantid_workspace_1/instrument/detector
+  file.closeGroup();
+  //close group: mantid_workspace_1/instrument
+  file.closeGroup();
+
+  file.makeGroup("process","NXentry",true);
+  file.makeGroup("MantidAlgorithm_1","NXentry",true);
+
+  const std::string author = "tianhl@ihep.ac.cn";
+  dim.clear();
+  dim.push_back(author.length());
+  file.makeData("author",NeXus::CHAR,dim,true);
+  file.putData(author.c_str());
+  file.closeData();
+
+  const std::string data = "Created by csns_rawdata_convertor\n http://github.com/tianhl/csns_rawdata_convertor";
+  dim.clear();
+  dim.push_back(data.length());
+  file.makeData("data",NeXus::CHAR,dim,true);
+  file.putData(data.c_str());
+  file.closeData();
+
+  const std::string description = "Created by csns_rawdata_convertor\n http://github.com/tianhl/csns_rawdata_convertor";
+  dim.clear();
+  dim.push_back(description.length());
+  file.makeData("description",NeXus::CHAR,dim,true);
+  file.putData(description.c_str());
+  file.closeData();
+
+  //close group: mantid_workspace_1/process/MantidAlgorithm_1
+  file.closeGroup();
+
+  file.makeGroup("MantidEnvironment","NXentry",true);
+  dim.clear();
+  dim.push_back(author.length());
+  file.makeData("author",NeXus::CHAR,dim,true);
+  file.putData(author.c_str());
+  file.closeData();
+
+  dim.clear();
+  dim.push_back(data.length());
+  file.makeData("data",NeXus::CHAR,dim,true);
+  file.putData(data.c_str());
+  file.closeData();
+
+  dim.clear();
+  dim.push_back(description.length());
+  file.makeData("description",NeXus::CHAR,dim,true);
+  file.putData(description.c_str());
+  file.closeData();
+
+
+  //close group: mantid_workspace_1/process/MantidEnvironment
+  file.closeGroup();
+
+  //close group: mantid_workspace_1/process
+  file.closeGroup();
+
+  //close group: mantid_workspace_1
   file.closeGroup();
 }
 
@@ -249,6 +370,7 @@ uint32_t Get_PositionID(uint32_t qa, uint32_t qb){
 }
 
 void SaveBinaryFile(uint32_t *cmap){
+  int counts = 0;
   std::cout << "SaveBinaryFile" << std::endl;
   std::ofstream fout("hh", std::ios::binary); 
 
@@ -274,6 +396,7 @@ void SaveBinaryFile(uint32_t *cmap){
       double R = ((double)pos)/BIN_DET;
       //std::cout << "(" <<(int)PSD << "/" << (int)pos << "/" << (int)TOF << ") ";
       for(int k=0;k<cmap[MapIdx(i,j)];k++){
+	counts +=1;
 	uint32_t QB = 0;
 	uint32_t QA = 0;
 	if(R<0.5){
@@ -295,6 +418,7 @@ void SaveBinaryFile(uint32_t *cmap){
     // std::cout << std::endl;
   }
   SaveEOPToBinaryFile(fout);
+  std::cout << "save count " << counts << std::endl; 
 
 
   /*----------------------------------------------*/
@@ -415,7 +539,7 @@ void LoadSimulationFile(uint32_t* cmap){
     boost::split( substring, samplebuff, boost::is_any_of( ";" ), boost::token_compress_on );
     //std::cout <<"Process Line " <<  tofidx << std::endl;
     for(uint32_t detidx = 0; detidx < MAX_DET  ; detidx++){
-      cmap[MapIdx(tofidx, detidx)] =(int)(atof(substring[detidx+1].c_str()))/100;
+      cmap[MapIdx(tofidx, detidx)] =atoi(substring[detidx+1].c_str());
       //cmap[MapIdx(tofidx, detidx)] =(int)(atoi(substring[detidx+1].c_str()));
       //      std::cout << "tofidx " << tofidx << " detidx " << detidx 
       //	<< " MapIdx " << MapIdx(tofidx,detidx) << std::endl;
