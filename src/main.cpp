@@ -19,7 +19,7 @@ const uint32_t MAX_DET =6400;
 const uint32_t BIN_DET =80;
 double NxsMap[MAX_DET][MAX_TOF];
 double ErrMap[MAX_DET][MAX_TOF];
-int TofMap[MAX_TOF];
+double TofMap[MAX_TOF];
 int DetMap[MAX_DET];
 int DetCount[MAX_DET];
 int SpectraIdx[MAX_DET];
@@ -144,7 +144,7 @@ void SaveNexusFile(uint32_t* dmap){
     }
   }
   for(int i = 0; i < MAX_TOF; i++){
-    TofMap[i] = 4+i*8;
+    TofMap[i] = (double)(4+i*8);
   }
   for(int i = 0; i < MAX_DET; i++){
     DetMap[i] = i;
@@ -197,7 +197,7 @@ void SaveNexusFile(uint32_t* dmap){
 
   dim.clear();
   dim.push_back(MAX_TOF);
-  file.makeData("axis1",NeXus::INT32,dim,true);
+  file.makeData("axis1",NeXus::FLOAT64,dim,true);
   file.putData(TofMap);
   file.putAttr("units", "TOF");
   file.putAttr("distribution", "0");
