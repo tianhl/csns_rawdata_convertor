@@ -17,7 +17,7 @@ using namespace std;
 const uint32_t MAX_TOF =4999;
 const uint32_t MAX_DET =6400;
 const uint32_t BIN_DET =80;
-int    NxsMap[MAX_DET][MAX_TOF];
+double NxsMap[MAX_DET][MAX_TOF];
 double ErrMap[MAX_DET][MAX_TOF];
 int TofMap[MAX_TOF];
 int DetMap[MAX_DET];
@@ -128,9 +128,16 @@ void SaveNexusFile(uint32_t* dmap){
 
   for(int i = 0; i< MAX_DET; i++){
     for(int j = 0; j< MAX_TOF; j++){
-      NxsMap[i][j]=dmap[j*MAX_DET+i]; 
+      NxsMap[i][j]=(double)dmap[j*MAX_DET+i]; 
     }
   }
+
+  //for (int i=0;i<MAX_DET;i++){
+  //  for (int j=0;j<MAX_TOF;j++){
+  //    std::cout << NxsMap[i][j] << ";";//[MapIdx(i,j)]<<" ";
+  //  }
+  //  std::cout<<std::endl;
+  //}
   for(int i = 0; i< MAX_DET; i++){
     for(int j = 0; j< MAX_TOF; j++){
       ErrMap[i][j]=0.0; 
@@ -173,15 +180,18 @@ void SaveNexusFile(uint32_t* dmap){
   dim.clear();
   dim.push_back(MAX_DET);
   dim.push_back(MAX_TOF);
-  file.makeData("values",NeXus::INT32,dim,true);
+  file.makeData("values",NeXus::FLOAT64,dim,true);
   file.putData(NxsMap);
   file.putAttr("signal","1");
+  file.putAttr("axes","axis1,axis2");
+  file.putAttr("units","Counts");
+  file.putAttr("unit_label","Counts");
   file.closeData();
 
   dim.clear();
   dim.push_back(MAX_DET);
   dim.push_back(MAX_TOF);
-  file.makeData("errors",NeXus::FLOAT32,dim,true);
+  file.makeData("errors",NeXus::FLOAT64,dim,true);
   file.putData(ErrMap);
   file.closeData();
 
@@ -190,6 +200,7 @@ void SaveNexusFile(uint32_t* dmap){
   file.makeData("axis1",NeXus::INT32,dim,true);
   file.putData(TofMap);
   file.putAttr("units", "TOF");
+  file.putAttr("distribution", "0");
   file.closeData();
 
   dim.clear();
@@ -220,7 +231,7 @@ void SaveNexusFile(uint32_t* dmap){
   file.closeData();
 
   for(int i = 0; i < MAX_DET; i++){
-    DetCount[i] = 1;
+    DetCount[i] =  1;
   }
   for(int i = 0; i < MAX_DET; i++){
     SpectraIdx[i] = i+1;
@@ -244,7 +255,7 @@ void SaveNexusFile(uint32_t* dmap){
   file.closeData();
 
   file.makeData("detector_list",NeXus::INT32,dim,true);
-  file.putData(DetCount);
+  file.putData(SpectraIdx);
   file.closeData();
 
   file.makeData("spectra",NeXus::INT32,dim,true);
@@ -254,7 +265,7 @@ void SaveNexusFile(uint32_t* dmap){
   dim.clear();
   dim.push_back(MAX_DET);
   dim.push_back(3);
-  file.makeData("detector_positions",NeXus::FLOAT32,dim,true);
+  file.makeData("detector_positions",NeXus::FLOAT64,dim,true);
   file.putData(DetPositions);
   file.closeData();
 
@@ -448,7 +459,7 @@ void PrintDMap(uint32_t *dmap){
 }
 
 uint64_t Decode_RawDataSegment(uint64_t *Buff, uint32_t *dmap, uint32_t size, uint8_t *flag){
-  std::cout << "Enter Decode_RawDataSegment(), buffer size: " << size << std::endl;
+  //std::cout << "Enter Decode_RawDataSegment(), buffer size: " << size << std::endl;
   uint64_t count = 0;
   uint64_t *ReadRawData;// = new uint8_t[8]; 
   time_t second;
@@ -502,14 +513,14 @@ void LoadBinaryFile(uint32_t *dmap){
   buffsize = fin.gcount();  
   count += Decode_RawDataSegment(Buff, dmap, size, flag);
   while (buffsize == (sizeof(uint64_t)*size)){
-    std::cout << "LoadBinaryFile " << fin.gcount() << std::endl;
+    //std::cout << "LoadBinaryFile " << fin.gcount() << std::endl;
     fin.read((char*)Buff, sizeof(uint64_t)*size);
     buffsize = fin.gcount();  
     if ((sizeof(uint64_t)*size) == buffsize ){
       count += Decode_RawDataSegment(Buff, dmap, size, flag);
     }
     else{
-      std::cout << "Read file " << buffsize/(sizeof(uint64_t)) << std::endl;
+      //std::cout << "Read file " << buffsize/(sizeof(uint64_t)) << std::endl;
       count += Decode_RawDataSegment(Buff, dmap, buffsize/(sizeof(uint64_t)), flag);
     }
   }
@@ -568,12 +579,6 @@ int main(int argc, char *argv[])
   //}
   //SaveBinaryFile(cmap);
   LoadBinaryFile(dmap);
-  //for (int i=0;i<MAX_TOF;i++){
-  //  for (int j=0;j<MAX_DET;j++){
-  //    std::cout << dmap[MapIdx(i,j)]<<" ";
-  //  }
-  //  std::cout<<std::endl;
-  //}
   PrintDMap(dmap);
   SaveNexusFile(dmap);
 
