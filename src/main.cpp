@@ -570,14 +570,9 @@ int main(int argc, char *argv[])
   //}
   uint32_t *cmap = new uint32_t[MAX_TOF*MAX_DET];
   uint32_t *dmap = new uint32_t[MAX_TOF*MAX_DET];
-  //LoadSimulationFile(cmap); 
-  //for (int i=0;i<MAX_TOF;i++){
-  //  for (int j=0;j<MAX_DET;j++){
-  //    std::cout << cmap[MapIdx(i,j)]<<" ";
-  //  }
-  //  std::cout<<std::endl;
-  //}
-  //SaveBinaryFile(cmap);
+
+  LoadSimulationFile(cmap); 
+  SaveBinaryFile(cmap);
   LoadBinaryFile(dmap);
   PrintDMap(dmap);
   SaveNexusFile(dmap);
