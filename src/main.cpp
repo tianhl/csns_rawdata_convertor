@@ -25,10 +25,10 @@ int DetCount[MAX_DET];
 int SpectraIdx[MAX_DET];
 double DetPositions[MAX_DET][3];
 
-typedef struct __MODULEEVT{
-  uint8_t psd;
-  uint32_t tof;
-}Module_Evt;
+//typedef struct __MODULEEVT{
+//  uint8_t psd;
+//  uint32_t tof;
+//}Module_Evt;
 
 typedef struct __HEADER{
   uint32_t subsecond;
