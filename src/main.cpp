@@ -17,18 +17,18 @@ using namespace std;
 const uint32_t MAX_TOF =4999;
 const uint32_t MAX_DET =6400;
 const uint32_t BIN_DET =80;
-double NxsMap[MAX_DET][MAX_TOF];
-double ErrMap[MAX_DET][MAX_TOF];
+double NxsMap[MAX_DET+2][MAX_TOF];
+double ErrMap[MAX_DET+2][MAX_TOF];
 double TofMap[MAX_TOF];
 int DetMap[MAX_DET];
 int DetCount[MAX_DET];
 int SpectraIdx[MAX_DET];
 double DetPositions[MAX_DET][3];
 
-//typedef struct __MODULEEVT{
-//  uint8_t psd;
-//  uint32_t tof;
-//}Module_Evt;
+typedef struct __MODULEEVT{
+  uint8_t psd;
+  uint32_t tof;
+}Module_Evt;
 
 typedef struct __HEADER{
   uint32_t subsecond;
@@ -121,12 +121,18 @@ void Encode_EOP(EndOfPulse* eop){
   eop->eop = 0xFF;
 }
 
-void SaveNexusFile(uint32_t* dmap){
+void SaveNexusFile(uint32_t* dmap, uint32_t* mmap1, uint32_t* mmap2){
   /*----------------------------------------------*/
   NeXus::File file("test.nxs",NXACC_CREATE5);
   file.makeGroup("mantid_workspace_1","NXentry",true);
 
-  for(int i = 0; i< MAX_DET; i++){
+  for(int j = 0; j< MAX_TOF; j++){
+    NxsMap[0][j]=(double)mmap1[j]; 
+  }
+  for(int j = 0; j< MAX_TOF; j++){
+    NxsMap[1][j]=(double)mmap2[j]; 
+  }
+  for(int i = 2; i< MAX_DET; i++){
     for(int j = 0; j< MAX_TOF; j++){
       NxsMap[i][j]=(double)dmap[j*MAX_DET+i]; 
     }
@@ -138,7 +144,7 @@ void SaveNexusFile(uint32_t* dmap){
   //  }
   //  std::cout<<std::endl;
   //}
-  for(int i = 0; i< MAX_DET; i++){
+  for(int i = 0; i< (MAX_DET+2); i++){
     for(int j = 0; j< MAX_TOF; j++){
       ErrMap[i][j]=0.0; 
     }
@@ -178,7 +184,7 @@ void SaveNexusFile(uint32_t* dmap){
 
   file.makeGroup("workspace","NXentry",true);
   dim.clear();
-  dim.push_back(MAX_DET);
+  dim.push_back(MAX_DET+2);
   dim.push_back(MAX_TOF);
   file.makeData("values",NeXus::FLOAT64,dim,true);
   file.putData(NxsMap);
@@ -189,7 +195,7 @@ void SaveNexusFile(uint32_t* dmap){
   file.closeData();
 
   dim.clear();
-  dim.push_back(MAX_DET);
+  dim.push_back(MAX_DET+2);
   dim.push_back(MAX_TOF);
   file.makeData("errors",NeXus::FLOAT64,dim,true);
   file.putData(ErrMap);
@@ -532,6 +538,25 @@ void LoadBinaryFile(uint32_t *dmap){
   fin.close();
 }
 
+void LoadMonitorFile(uint32_t* mmap, std::string samplefilename){
+  std::cout << "LoadMonitorFile " << samplefilename << std::endl;
+  std::ifstream samplefile(samplefilename.c_str());
+
+  string samplebuff;
+  getline(samplefile, samplebuff);
+
+  //std::cout << samplebuff << std::endl; 
+  for (int tofidx=0;tofidx<MAX_TOF ;tofidx++){
+    getline(samplefile, samplebuff);
+
+    vector<string> substring;
+    boost::split( substring, samplebuff, boost::is_any_of( ";" ), boost::token_compress_on );
+    mmap[tofidx] =atoi(substring[1].c_str());
+    //std::cout << mmap[tofidx] << std::endl; 
+  }
+  samplefile.close();
+
+}
 
 void LoadSimulationFile(uint32_t* cmap){
 
@@ -560,6 +585,7 @@ void LoadSimulationFile(uint32_t* cmap){
     }
   }
   std::cout << "total neutron hit count: " << tot << std::endl;
+  samplefile.close();
 }
 
 int main(int argc, char *argv[])
@@ -570,12 +596,18 @@ int main(int argc, char *argv[])
   //}
   uint32_t *cmap = new uint32_t[MAX_TOF*MAX_DET];
   uint32_t *dmap = new uint32_t[MAX_TOF*MAX_DET];
+  uint32_t *mmap1= new uint32_t[MAX_TOF];
+  uint32_t *mmap2= new uint32_t[MAX_TOF];
 
+  std::string monitorfile1("/home/tianhl/workarea/CSNS_SANS_SIM/sample/sans_run/sample_sans_M1.txt");
+  std::string monitorfile2("/home/tianhl/workarea/CSNS_SANS_SIM/sample/sans_run/sample_sans_M2.txt");
   LoadSimulationFile(cmap); 
   SaveBinaryFile(cmap);
+  LoadMonitorFile(mmap1, monitorfile1); 
+  LoadMonitorFile(mmap2, monitorfile2); 
   LoadBinaryFile(dmap);
   PrintDMap(dmap);
-  SaveNexusFile(dmap);
+  SaveNexusFile(dmap,mmap1,mmap2);
 
 
 
