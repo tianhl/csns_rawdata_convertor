@@ -121,9 +121,9 @@ void Encode_EOP(EndOfPulse* eop){
   eop->eop = 0xFF;
 }
 
-void SaveNexusFile(uint32_t* dmap, uint32_t* mmap1, uint32_t* mmap2){
+void SaveNexusFile(uint32_t* dmap, uint32_t* mmap1, uint32_t* mmap2, std::string nexusfilename){
   /*----------------------------------------------*/
-  NeXus::File file("test.nxs",NXACC_CREATE5);
+  NeXus::File file(nexusfilename.c_str(), NXACC_CREATE5);
   file.makeGroup("mantid_workspace_1","NXentry",true);
 
   for(int j = 0; j< MAX_TOF; j++){
@@ -386,10 +386,10 @@ uint32_t Get_PositionID(uint32_t qa, uint32_t qb){
   }
 }
 
-void SaveBinaryFile(uint32_t *cmap){
+void SaveBinaryFile(uint32_t *cmap, std::string binaryfilename){
   int counts = 0;
   std::cout << "SaveBinaryFile" << std::endl;
-  std::ofstream fout("hh", std::ios::binary); 
+  std::ofstream fout(binaryfilename.c_str(), std::ios::binary); 
 
   std::time_t UnixTime = std::time(0);  // t is an integer type
 
@@ -505,7 +505,7 @@ uint64_t Decode_RawDataSegment(uint64_t *Buff, uint32_t *dmap, uint32_t size, ui
 }
 
 
-void LoadBinaryFile(uint32_t *dmap){
+void LoadBinaryFile(uint32_t *dmap, std::string binaryfilename){
 
   /*----------------------------------------------*/
   uint32_t size = 100000;
@@ -514,7 +514,7 @@ void LoadBinaryFile(uint32_t *dmap){
   *flag = 0;
   size_t buffsize = 0; 
   uint64_t *Buff = new uint64_t[size]; 
-  std::ifstream fin("hh", std::ios::binary);
+  std::ifstream fin(binaryfilename.c_str(), std::ios::binary);
   fin.read((char*)Buff, sizeof(uint64_t)*size);
   buffsize = fin.gcount();  
   count += Decode_RawDataSegment(Buff, dmap, size, flag);
@@ -558,10 +558,10 @@ void LoadMonitorFile(uint32_t* mmap, std::string samplefilename){
 
 }
 
-void LoadSimulationFile(uint32_t* cmap){
+void LoadSimulationFile(uint32_t* cmap, std::string samplefilename){
 
   std::cout << "LoadSimulationFile "<< std::endl;
-  std::ifstream samplefile("/home/tianhl/workarea/CSNS_SANS_SIM/sample/sans_run/sample_sans_D.txt");
+  std::ifstream samplefile(samplefilename.c_str());
   //std::ifstream samplefile("/home/tianhl/workarea/CSNS_SANS_SIM/app/test/test_raw");
   string samplebuff;
   getline(samplefile, samplebuff);
@@ -599,15 +599,18 @@ int main(int argc, char *argv[])
   uint32_t *mmap1= new uint32_t[MAX_TOF];
   uint32_t *mmap2= new uint32_t[MAX_TOF];
 
+  std::string samplefile("/home/tianhl/workarea/CSNS_SANS_SIM/sample/sans_run/sample_sans_D.txt");
+  std::string binaryfile("/home/tianhl/workarea/CSNS_SANS_SIM/app/test/test.raw");
   std::string monitorfile1("/home/tianhl/workarea/CSNS_SANS_SIM/sample/sans_run/sample_sans_M1.txt");
   std::string monitorfile2("/home/tianhl/workarea/CSNS_SANS_SIM/sample/sans_run/sample_sans_M2.txt");
-  LoadSimulationFile(cmap); 
-  SaveBinaryFile(cmap);
+  std::string nexusfile("/home/tianhl/workarea/CSNS_SANS_SIM/app/test/test.nxs");
+  LoadSimulationFile(cmap, samplefile); 
+  SaveBinaryFile(cmap, binaryfile);
   LoadMonitorFile(mmap1, monitorfile1); 
   LoadMonitorFile(mmap2, monitorfile2); 
-  LoadBinaryFile(dmap);
+  LoadBinaryFile(dmap, binaryfile);
   PrintDMap(dmap);
-  SaveNexusFile(dmap,mmap1,mmap2);
+  SaveNexusFile(dmap,mmap1,mmap2, nexusfile);
 
 
 
