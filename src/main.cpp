@@ -14,6 +14,9 @@ using namespace std;
 //const uint32_t MAX_DET = 14;//6400;
 //const uint32_t BIN_DET =  7;//80;
 
+#include "log.h"
+#include "config.h"
+
 const uint32_t MAX_TOF =4999;
 const uint32_t MAX_DET =6400;
 const uint32_t BIN_DET =80;
@@ -590,20 +593,25 @@ void LoadSimulationFile(uint32_t* cmap, std::string samplefilename){
 
 int main(int argc, char *argv[])
 {
-  //if ( argc != 2 ) {
-  //    std::cout << "Usage: " << argv[0] << "  option.txt" << std::endl;
-  //    return 1;
-  //}
+  if ( argc != 2 ) {
+      std::cout << "Usage: " << argv[0] << "  option.txt" << std::endl;
+      return 1;
+  }
   uint32_t *cmap = new uint32_t[MAX_TOF*MAX_DET];
   uint32_t *dmap = new uint32_t[MAX_TOF*MAX_DET];
   uint32_t *mmap1= new uint32_t[MAX_TOF];
   uint32_t *mmap2= new uint32_t[MAX_TOF];
 
-  std::string samplefile("/home/tianhl/workarea/CSNS_SANS_SIM/sample/sans_run/sample_sans_D.txt");
-  std::string binaryfile("/home/tianhl/workarea/CSNS_SANS_SIM/app/test/test.raw");
-  std::string monitorfile1("/home/tianhl/workarea/CSNS_SANS_SIM/sample/sans_run/sample_sans_M1.txt");
-  std::string monitorfile2("/home/tianhl/workarea/CSNS_SANS_SIM/sample/sans_run/sample_sans_M2.txt");
-  std::string nexusfile("/home/tianhl/workarea/CSNS_SANS_SIM/app/test/test.nxs");
+  std::string configfile(argv[1]);
+  Config* fConfig = new Config(configfile);
+
+
+  std::string samplefile    = fConfig->pString("samplefile") ;  
+  std::string binaryfile    = fConfig->pString("binaryfile") ; 
+  std::string monitorfile1  = fConfig->pString("monitorfile1") ; 
+  std::string monitorfile2  = fConfig->pString("monitorfile2") ; 
+  std::string nexusfile     = fConfig->pString("nexusfile") ; 
+
   LoadSimulationFile(cmap, samplefile); 
   SaveBinaryFile(cmap, binaryfile);
   LoadMonitorFile(mmap1, monitorfile1); 
