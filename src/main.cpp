@@ -20,8 +20,8 @@ using namespace std;
 const uint32_t MAX_TOF =4999;
 const uint32_t MAX_DET =6400;
 const uint32_t BIN_DET =80;
-double NxsMap[MAX_DET+2][MAX_TOF];
-double ErrMap[MAX_DET+2][MAX_TOF];
+double NxsMap[MAX_DET+5][MAX_TOF];
+double ErrMap[MAX_DET+5][MAX_TOF];
 double TofMap[MAX_TOF];
 int DetMap[MAX_DET];
 int DetCount[MAX_DET];
@@ -124,18 +124,33 @@ void Encode_EOP(EndOfPulse* eop){
   eop->eop = 0xFF;
 }
 
-void SaveNexusFile(uint32_t* dmap, uint32_t* mmap1, uint32_t* mmap2, std::string nexusfilename){
+void SaveNexusFile(uint32_t* dmap, uint32_t* mmap1, uint32_t* mmap2, uint32_t* tmap1, uint32_t* tmap2, uint32_t* tmap3, std::string nexusfilename){
   /*----------------------------------------------*/
   NeXus::File file(nexusfilename.c_str(), NXACC_CREATE5);
   file.makeGroup("mantid_workspace_1","NXentry",true);
 
+  // sans M1
   for(int j = 0; j< MAX_TOF; j++){
     NxsMap[0][j]=(double)mmap1[j]; 
   }
+  // sans M2
   for(int j = 0; j< MAX_TOF; j++){
     NxsMap[1][j]=(double)mmap2[j]; 
   }
-  for(int i = 2; i< MAX_DET; i++){
+  // trans M1
+  for(int j = 0; j< MAX_TOF; j++){
+    NxsMap[2][j]=(double)tmap1[j]; 
+  }
+  // trans M2
+  for(int j = 0; j< MAX_TOF; j++){
+    NxsMap[3][j]=(double)tmap2[j]; 
+  }
+  // trans M3
+  for(int j = 0; j< MAX_TOF; j++){
+    NxsMap[4][j]=(double)tmap3[j]; 
+  }
+  // sans Det
+  for(int i = 5; i< MAX_DET; i++){
     for(int j = 0; j< MAX_TOF; j++){
       NxsMap[i][j]=(double)dmap[j*MAX_DET+i]; 
     }
@@ -147,7 +162,7 @@ void SaveNexusFile(uint32_t* dmap, uint32_t* mmap1, uint32_t* mmap2, std::string
   //  }
   //  std::cout<<std::endl;
   //}
-  for(int i = 0; i< (MAX_DET+2); i++){
+  for(int i = 0; i< (MAX_DET+5); i++){
     for(int j = 0; j< MAX_TOF; j++){
       ErrMap[i][j]=0.0; 
     }
@@ -187,7 +202,7 @@ void SaveNexusFile(uint32_t* dmap, uint32_t* mmap1, uint32_t* mmap2, std::string
 
   file.makeGroup("workspace","NXentry",true);
   dim.clear();
-  dim.push_back(MAX_DET+2);
+  dim.push_back(MAX_DET+5);
   dim.push_back(MAX_TOF);
   file.makeData("values",NeXus::FLOAT64,dim,true);
   file.putData(NxsMap);
@@ -198,7 +213,7 @@ void SaveNexusFile(uint32_t* dmap, uint32_t* mmap1, uint32_t* mmap2, std::string
   file.closeData();
 
   dim.clear();
-  dim.push_back(MAX_DET+2);
+  dim.push_back(MAX_DET+5);
   dim.push_back(MAX_TOF);
   file.makeData("errors",NeXus::FLOAT64,dim,true);
   file.putData(ErrMap);
@@ -601,6 +616,9 @@ int main(int argc, char *argv[])
   uint32_t *dmap = new uint32_t[MAX_TOF*MAX_DET];
   uint32_t *mmap1= new uint32_t[MAX_TOF];
   uint32_t *mmap2= new uint32_t[MAX_TOF];
+  uint32_t *tmap1= new uint32_t[MAX_TOF];
+  uint32_t *tmap2= new uint32_t[MAX_TOF];
+  uint32_t *tmap3= new uint32_t[MAX_TOF];
 
   std::string configfile(argv[1]);
   Config* fConfig = new Config(configfile);
@@ -610,15 +628,21 @@ int main(int argc, char *argv[])
   std::string binaryfile    = fConfig->pString("binaryfile") ; 
   std::string monitorfile1  = fConfig->pString("monitorfile1") ; 
   std::string monitorfile2  = fConfig->pString("monitorfile2") ; 
+  std::string tranfile1     = fConfig->pString("tranfile1") ; 
+  std::string tranfile2     = fConfig->pString("tranfile2") ; 
+  std::string tranfile3     = fConfig->pString("tranfile3") ; 
   std::string nexusfile     = fConfig->pString("nexusfile") ; 
 
   LoadSimulationFile(cmap, samplefile); 
   SaveBinaryFile(cmap, binaryfile);
   LoadMonitorFile(mmap1, monitorfile1); 
   LoadMonitorFile(mmap2, monitorfile2); 
+  LoadMonitorFile(tmap1, tranfile1); 
+  LoadMonitorFile(tmap2, tranfile2); 
+  LoadMonitorFile(tmap3, tranfile3); 
   LoadBinaryFile(dmap, binaryfile);
   PrintDMap(dmap);
-  SaveNexusFile(dmap,mmap1,mmap2, nexusfile);
+  SaveNexusFile(dmap,mmap1,mmap2,tmap1,tmap2,tmap3,nexusfile);
 
 
 
