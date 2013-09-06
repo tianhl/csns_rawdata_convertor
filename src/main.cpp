@@ -126,6 +126,7 @@ void Encode_EOP(EndOfPulse* eop){
 
 void SaveNexusFile(uint32_t* dmap, uint32_t* mmap1, uint32_t* mmap2, uint32_t* tmap1, uint32_t* tmap2, uint32_t* tmap3, std::string nexusfilename){
   /*----------------------------------------------*/
+  std::cout << "SaveNeXusFile" << std::endl;
   NeXus::File file(nexusfilename.c_str(), NXACC_CREATE5);
   file.makeGroup("mantid_workspace_1","NXentry",true);
 
@@ -623,24 +624,43 @@ int main(int argc, char *argv[])
   std::string configfile(argv[1]);
   Config* fConfig = new Config(configfile);
 
+  std::string samplefile  ; 
+  std::string binaryfile  ; 
+  std::string monitorfile1; 
+  std::string monitorfile2; 
 
-  std::string samplefile    = fConfig->pString("samplefile") ;  
-  std::string binaryfile    = fConfig->pString("binaryfile") ; 
-  std::string monitorfile1  = fConfig->pString("monitorfile1") ; 
-  std::string monitorfile2  = fConfig->pString("monitorfile2") ; 
+  bool isDirect      = fConfig->pBool("directbeam") ; 
+  if(! isDirect){
+    samplefile    = fConfig->pString("samplefile") ;  
+    binaryfile    = fConfig->pString("binaryfile") ; 
+    monitorfile1  = fConfig->pString("monitorfile1") ; 
+    monitorfile2  = fConfig->pString("monitorfile2") ; 
+  }
   std::string tranfile1     = fConfig->pString("tranfile1") ; 
   std::string tranfile2     = fConfig->pString("tranfile2") ; 
   std::string tranfile3     = fConfig->pString("tranfile3") ; 
   std::string nexusfile     = fConfig->pString("nexusfile") ; 
 
-  LoadSimulationFile(cmap, samplefile); 
-  SaveBinaryFile(cmap, binaryfile);
-  LoadMonitorFile(mmap1, monitorfile1); 
-  LoadMonitorFile(mmap2, monitorfile2); 
+  if(! isDirect){
+    LoadSimulationFile(cmap, samplefile); 
+    SaveBinaryFile(cmap, binaryfile);
+    LoadMonitorFile(mmap1, monitorfile1); 
+    LoadMonitorFile(mmap2, monitorfile2); 
+    LoadBinaryFile(dmap, binaryfile);
+  }
+  else{
+    for (uint32_t i = 0; i < MAX_TOF; i++ ){
+      mmap1[j] = 0; 
+      mmap2[j] = 0; 
+      for (uint32_t j = 0; j < MAX_DET; j++ ){
+	dmap[i*MAX_DET+j] =0;
+      }
+    }
+  }
+
   LoadMonitorFile(tmap1, tranfile1); 
   LoadMonitorFile(tmap2, tranfile2); 
   LoadMonitorFile(tmap3, tranfile3); 
-  LoadBinaryFile(dmap, binaryfile);
   PrintDMap(dmap);
   SaveNexusFile(dmap,mmap1,mmap2,tmap1,tmap2,tmap3,nexusfile);
 
