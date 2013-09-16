@@ -407,19 +407,18 @@ uint32_t Get_PositionID(uint32_t qa, uint32_t qb){
 
 void SaveBinaryFile(uint32_t *cmap, std::string binaryfilename){
   int counts = 0;
+  int pulses = 0;
   std::cout << "SaveBinaryFile" << std::endl;
   std::ofstream fout(binaryfilename.c_str(), std::ios::binary); 
 
   std::time_t UnixTime = std::time(0);  // t is an integer type
+  time_t   second    = UnixTime;
+  uint32_t subsecond = 0;
 
-  time_t   second    = 100000;
-  uint32_t subsecond = 123456789;
   uint8_t type   = 0x0;
   uint8_t module = 0x1;
 
-  std::cout << "SaveHeader" << std::endl;
   SaveHeaderToBinaryFile(fout, &type, &module, &subsecond);
-  std::cout << "SaveTime" << std::endl;
   SaveTimeStampToBinaryFile(fout, &second);
   /*----------------------------------------------*/
   srand((int)time(0));
@@ -430,8 +429,19 @@ void SaveBinaryFile(uint32_t *cmap, std::string binaryfilename){
       uint8_t PSD = PSDIdx(j);
       uint8_t pos = PosIdx(j);
       double R = ((double)pos)/BIN_DET;
-      //std::cout << "(" <<(int)PSD << "/" << (int)pos << "/" << (int)TOF << ") ";
       for(int k=0;k<cmap[MapIdx(i,j)];k++){
+	// rand end of one pluse, and begin an new pulse 
+	if((rand()%10)<2.0){
+	  pulses++;
+	  subsecond = 150000000*(pulses%25);
+	  if(0==(pulses%25))UnixTime=UnixTime+100000;
+	  if(0==(pulses%100000)) std::cout << "SaveEOP " << pulses << " pulses "<< counts  << " events " << std::endl; 
+	  SaveEOPToBinaryFile(fout);
+	  SaveHeaderToBinaryFile(fout, &type, &module, &subsecond);
+	  SaveTimeStampToBinaryFile(fout, &second);
+
+	}
+	// one neutron event
 	counts +=1;
 	uint32_t QB = 0;
 	uint32_t QA = 0;
@@ -443,18 +453,14 @@ void SaveBinaryFile(uint32_t *cmap, std::string binaryfilename){
 	  QA = (rand()%1024+1);
 	  QB = QA*(1-R)/R;
 	}
-	//std::cout << "pos " << (int)pos << " getpos " << Get_PositionID(QA,QB)<< std::endl;
-	//if(pos!=Get_PositionID(QA,QB)){
-	//  std::cout << "pos " << (int)pos  << " double " << (double)pos << " R " << R 
-	//    << " QA " << QA << " QB " << QB <<" GetPos " << Get_PositionID(QA,QB) << std::endl;
-	//}
 	SaveEventToBinaryFile(fout, &PSD, &TOF, &QA, &QB);
+	// one neutron event
       }
     }
-    // std::cout << std::endl;
   }
   SaveEOPToBinaryFile(fout);
-  std::cout << "save count " << counts << std::endl; 
+  std::cout << "SaveEOP " << pulses << " pulses "<< counts  << " events " << std::endl; 
+  std::cout << "Save count " << counts << std::endl; 
 
 
   /*----------------------------------------------*/
@@ -506,7 +512,7 @@ uint64_t Decode_RawDataSegment(uint64_t *Buff, uint32_t *dmap, uint32_t size, ui
       continue;
     }
     if ((((*ReadRawData)>>56) == 0xFF)&&(*flag >= 2)) {
-      std::cout << " EndOfPulse" << std::endl; 
+      //std::cout << " EndOfPulse" << std::endl; 
       *flag = 0;
     }
     else if ((*flag == 2)||(*flag == 3)){
@@ -610,8 +616,8 @@ void LoadSimulationFile(uint32_t* cmap, std::string samplefilename){
 int main(int argc, char *argv[])
 {
   if ( argc != 2 ) {
-      std::cout << "Usage: " << argv[0] << "  option.txt" << std::endl;
-      return 1;
+    std::cout << "Usage: " << argv[0] << "  option.txt" << std::endl;
+    return 1;
   }
   uint32_t *cmap = new uint32_t[MAX_TOF*MAX_DET];
   uint32_t *dmap = new uint32_t[MAX_TOF*MAX_DET];
@@ -650,8 +656,8 @@ int main(int argc, char *argv[])
   }
   else{
     for (uint32_t i = 0; i < MAX_TOF; i++ ){
-      mmap1[j] = 0; 
-      mmap2[j] = 0; 
+      mmap1[i] = 0; 
+      mmap2[i] = 0; 
       for (uint32_t j = 0; j < MAX_DET; j++ ){
 	dmap[i*MAX_DET+j] =0;
       }
