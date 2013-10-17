@@ -501,13 +501,13 @@ uint64_t Decode_RawDataSegment(uint64_t *Buff, uint32_t *dmap, uint32_t size, ui
     //std::cout << "zzz: " << std::hex << *ReadRawData << std::endl;
     if ((((*ReadRawData)>>56) == 0x0) && (*flag == 0))  {
       Decode_PulseHeader(ReadRawData, &type, &module, &subsecond);
-      std::cout << " Header: type " << type << " module  " << module << " subsecond " << subsecond << std::endl;
+      //std::cout << " Header: type " << type << " module  " << module << " subsecond " << subsecond << std::endl;
       *flag = 1;
     }
     else if (*flag == 1){
       //int64_t second;
       Decode_PulseTime(ReadRawData, &second);
-      std::cout << " Time: second " << second  <<" "<< ctime((time_t*)&second)    <<  std::endl; 
+      //std::cout << " Time: second " << second  <<" "<< ctime((time_t*)&second)    <<  std::endl; 
       *flag = 2; 
       continue;
     }
@@ -648,8 +648,8 @@ int main(int argc, char *argv[])
   std::string nexusfile     = fConfig->pString("nexusfile") ; 
 
   if(! isDirect){
-    LoadSimulationFile(cmap, samplefile); 
-    SaveBinaryFile(cmap, binaryfile);
+    //LoadSimulationFile(cmap, samplefile); 
+    //SaveBinaryFile(cmap, binaryfile);
     LoadMonitorFile(mmap1, monitorfile1); 
     LoadMonitorFile(mmap2, monitorfile2); 
     LoadBinaryFile(dmap, binaryfile);
