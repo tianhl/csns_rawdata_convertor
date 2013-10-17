@@ -124,6 +124,273 @@ void Encode_EOP(EndOfPulse* eop){
   eop->eop = 0xFF;
 }
 
+void SaveNexusFile2(uint32_t* dmap, uint32_t* mmap1, uint32_t* mmap2, uint32_t* tmap1, uint32_t* tmap2, uint32_t* tmap3, std::string nexusfilename){
+  std::cout << "SavenexusFile2" << std::endl;
+  NXaccess mode(NXACC_CREATE5);
+  NXstatus status;
+  NXhandle fileID;
+  int compression(NX_COMP_LZW);
+
+  status=NXopen(nexusfilename.c_str(), mode, &fileID);
+
+  //enter group: mantid_workspace_1
+  status=NXmakegroup(fileID,"mantid_workspace_1","NXentry");
+  status=NXopengroup(fileID,"mantid_workspace_1","NXentry");
+
+
+  const std::string definition = "Mantid Processed Workspace";
+  const std::string title = "Sample for test";
+
+
+  int dim[2]={0,0};
+
+  dim[0]=definition.size();
+  status=NXmakedata(fileID,"definition",NeXus::CHAR,1,dim);
+  status=NXopendata(fileID,"definition");
+  status=NXputdata(fileID,definition.c_str());
+  status=NXclosedata(fileID);
+
+  status=NXmakedata(fileID,"definition_local",NeXus::CHAR,1,dim);
+  status=NXopendata(fileID,"definition_local");
+  status=NXputdata(fileID,definition.c_str());
+  status=NXclosedata(fileID);
+
+  dim[0]=title.size();
+  status=NXmakedata(fileID,"title",NeXus::CHAR,1,dim);
+  status=NXopendata(fileID,"title");
+  status=NXputdata(fileID,title.c_str());
+  status=NXclosedata(fileID);
+
+  //enter group: mantid_workspace_1/workspace
+  status=NXmakegroup(fileID,"workspace","NXentry");
+  status=NXopengroup(fileID,"workspace","NXentry");
+
+  // sans M1
+  for(int j = 0; j< MAX_TOF; j++){
+    NxsMap[0][j]=(double)mmap1[j]; 
+  }
+  // sans M2
+  for(int j = 0; j< MAX_TOF; j++){
+    NxsMap[1][j]=(double)mmap2[j]; 
+  }
+  // trans M1
+  for(int j = 0; j< MAX_TOF; j++){
+    NxsMap[2][j]=(double)tmap1[j]; 
+  }
+  // trans M2
+  for(int j = 0; j< MAX_TOF; j++){
+    NxsMap[3][j]=(double)tmap2[j]; 
+  }
+  // trans M3
+  for(int j = 0; j< MAX_TOF; j++){
+    NxsMap[4][j]=(double)tmap3[j]; 
+  }
+  // sans Det
+  for(int i = 5; i< MAX_DET; i++){
+    for(int j = 0; j< MAX_TOF; j++){
+      NxsMap[i][j]=(double)dmap[j*MAX_DET+i]; 
+    }
+  }
+  // Error table
+  for(int i = 0; i< (MAX_DET+5); i++){
+    for(int j = 0; j< MAX_TOF; j++){
+      ErrMap[i][j]=0.0; 
+    }
+  }
+  // SpectBins
+  for(int i = 0; i < MAX_TOF; i++){
+    TofMap[i] = (double)(4+i*8);
+  }
+  // Spect
+  for(int i = 0; i < MAX_DET; i++){
+    DetMap[i] = i;
+  }
+
+  int dims_array[2]={MAX_DET+5, MAX_TOF};
+  int start[2]={0,0};
+  int asize[2]={1,dims_array[1]};
+  status=NXcompmakedata(fileID, "values", NX_FLOAT64, 2, dims_array,compression,asize);
+  status=NXopendata(fileID,"values");
+  for(int i = 0; i< MAX_DET+5; i++){
+    status=NXputslab(fileID, (void*)NxsMap[i],start,asize);
+    start[0]++;
+  }
+  std::string text("1");
+  NXputattr(fileID,"signal",(void*)text.c_str(),static_cast<int>(text.size()), NX_CHAR);
+  text = "axis1,axis2";
+  NXputattr(fileID,"axes",(void*)text.c_str(),static_cast<int>(text.size()), NX_CHAR);
+  text = "Counts";
+  NXputattr(fileID,"units",(void*)text.c_str(),static_cast<int>(text.size()), NX_CHAR);
+  NXputattr(fileID,"units_label",(void*)text.c_str(),static_cast<int>(text.size()), NX_CHAR);
+  status=NXclosedata(fileID);
+
+  start[0] = 0;
+  status=NXcompmakedata(fileID, "errors", NX_FLOAT64, 2, dims_array,compression,asize);
+  status=NXopendata(fileID,"errors");
+  for(int i = 0; i< MAX_DET+5; i++){
+    status=NXputslab(fileID, (void*)ErrMap[i],start,asize);
+    start[0]++;
+  }
+  status=NXclosedata(fileID);
+
+  dims_array[0] = MAX_TOF;
+  status = NXmakedata(fileID, "axis1", NX_FLOAT64, 1, dims_array);
+  status = NXopendata(fileID, "axis1");
+  status = NXputdata(fileID, (void*)TofMap);
+  text = "TOF";
+  NXputattr(fileID,"units",(void*)text.c_str(),static_cast<int>(text.size()), NX_CHAR);
+  text = "0";
+  NXputattr(fileID,"distribution",(void*)text.c_str(),static_cast<int>(text.size()), NX_CHAR);
+  status = NXclosedata(fileID);
+
+  dims_array[0] = MAX_DET;
+  status = NXmakedata(fileID, "axis2", NX_INT32, 1, dims_array);
+  status = NXopendata(fileID, "axis2");
+  status = NXputdata(fileID, (void*)DetMap);
+  text = "spectraNumber";
+  NXputattr(fileID,"units",(void*)text.c_str(),static_cast<int>(text.size()), NX_CHAR);
+  status = NXclosedata(fileID);
+
+  //close group: mantid_workspace_1/workspace
+  NXclosegroup(fileID);
+
+  //enter group: mantid_workspace_1/instrument
+  status=NXmakegroup(fileID,"instrument","NXentry");
+  status=NXopengroup(fileID,"instrument","NXentry");
+
+  const std::string instrument_source = "CSNS_SANS";
+  dim[0]=instrument_source.size();
+  status=NXmakedata(fileID,"instrument_source",NeXus::CHAR,1,dim);
+  status=NXopendata(fileID,"instrument_source");
+  status=NXputdata(fileID,instrument_source.c_str());
+  status=NXclosedata(fileID);
+
+  const std::string name = "CSNS_SANS";
+  dim[0]=name.size();
+  status=NXmakedata(fileID,"name",NeXus::CHAR,1,dim);
+  status=NXopendata(fileID,"name");
+  status=NXputdata(fileID,name.c_str());
+  status=NXclosedata(fileID);
+
+  for(int i = 0; i < MAX_DET; i++){
+    DetCount[i] =  1;
+  }
+  for(int i = 0; i < MAX_DET; i++){
+    SpectraIdx[i] = i+1;
+  }
+  for(int i = 0; i< MAX_DET; i++){
+    for(int j = 0; j< 3; j++){
+      DetPositions[i][j]=0.0; 
+    }
+  }
+
+  //enter group: mantid_workspace_1/instrument/detector
+  status=NXmakegroup(fileID,"detector","NXentry");
+  status=NXopengroup(fileID,"detector","NXentry");
+
+  dims_array[0] = MAX_DET;
+  status = NXmakedata(fileID, "detector_index", NX_INT32, 1, dims_array);
+  status = NXopendata(fileID, "detector_index");
+  status = NXputdata(fileID, (void*)DetMap);
+  status = NXclosedata(fileID);
+
+  status = NXmakedata(fileID, "detector_count", NX_INT32, 1, dims_array);
+  status = NXopendata(fileID, "detector_count");
+  status = NXputdata(fileID, (void*)DetCount);
+  status = NXclosedata(fileID);
+
+  status = NXmakedata(fileID, "detector_list", NX_INT32, 1, dims_array);
+  status = NXopendata(fileID, "detector_list");
+  status = NXputdata(fileID, (void*)SpectraIdx);
+  status = NXclosedata(fileID);
+
+  status = NXmakedata(fileID, "spectra", NX_INT32, 1, dims_array);
+  status = NXopendata(fileID, "spectra");
+  status = NXputdata(fileID, (void*)SpectraIdx);
+  status = NXclosedata(fileID);
+
+  dims_array[1] = 3;
+  start[0] = 0;
+  asize[1]=dims_array[1];
+  status = NXcompmakedata(fileID, "detector_positions", NX_FLOAT64, 2, dims_array,compression,asize);
+  status = NXopendata(fileID, "detector_positions");
+  for(int i = 0; i< dims_array[1]; i++){
+    status=NXputslab(fileID, (void*)DetPositions[i],start,asize);
+    start[0]++;
+  }
+  status = NXclosedata(fileID);
+
+  //close group: mantid_workspace_1/instrument/detector
+  NXclosegroup(fileID);
+  //close group: mantid_workspace_1/instrument
+  NXclosegroup(fileID);
+
+  //enter group: mantid_workspace_1/process
+  status=NXmakegroup(fileID,"process","NXentry");
+  status=NXopengroup(fileID,"process","NXentry");
+  //enter group: mantid_workspace_1/process/MantidAlgorithm_1
+  status=NXmakegroup(fileID,"MantidAlgorithm_1","NXentry");
+  status=NXopengroup(fileID,"MantidAlgorithm_1","NXentry");
+
+  const std::string author = "tianhl@ihep.ac.cn";
+  dim[0]=author.size();
+  status=NXmakedata(fileID,"author",NeXus::CHAR,1,dim);
+  status=NXopendata(fileID,"author");
+  status=NXputdata(fileID,author.c_str());
+  status=NXclosedata(fileID);
+
+  const std::string data = "Created by csns_rawdata_convertor\n http://github.com/tianhl/csns_rawdata_convertor";
+  dim[0]=data.size();
+  status=NXmakedata(fileID,"data",NeXus::CHAR,1,dim);
+  status=NXopendata(fileID,"data");
+  status=NXputdata(fileID,data.c_str());
+  status=NXclosedata(fileID);
+
+  const std::string description = "Created by csns_rawdata_convertor\n http://github.com/tianhl/csns_rawdata_convertor";
+  dim[0]=description.size();
+  status=NXmakedata(fileID,"description",NeXus::CHAR,1,dim);
+  status=NXopendata(fileID,"description");
+  status=NXputdata(fileID,description.c_str());
+  status=NXclosedata(fileID);
+
+
+  //close group: mantid_workspace_1/process/MantidAlgorithm_1
+  NXclosegroup(fileID);
+
+  //enter group: mantid_workspace_1/process/MantidEnvironment
+  status=NXmakegroup(fileID,"MantidEnvironment","NXentry");
+  status=NXopengroup(fileID,"MantidEnvironment","NXentry");
+
+  dim[0]=author.size();
+  status=NXmakedata(fileID,"author",NeXus::CHAR,1,dim);
+  status=NXopendata(fileID,"author");
+  status=NXputdata(fileID,author.c_str());
+  status=NXclosedata(fileID);
+
+  dim[0]=data.size();
+  status=NXmakedata(fileID,"data",NeXus::CHAR,1,dim);
+  status=NXopendata(fileID,"data");
+  status=NXputdata(fileID,data.c_str());
+  status=NXclosedata(fileID);
+
+  dim[0]=description.size();
+  status=NXmakedata(fileID,"description",NeXus::CHAR,1,dim);
+  status=NXopendata(fileID,"description");
+  status=NXputdata(fileID,description.c_str());
+  status=NXclosedata(fileID);
+
+  //close group: mantid_workspace_1/process/MantidEnvironment
+  NXclosegroup(fileID);
+  //close group: mantid_workspace_1/process
+  NXclosegroup(fileID);
+  //close group: mantid_workspace_1
+  NXclosegroup(fileID);
+
+  /*-----------------------------------------------*/
+  // close file
+  NXclose(&fileID);
+}
+
 void SaveNexusFile(uint32_t* dmap, uint32_t* mmap1, uint32_t* mmap2, uint32_t* tmap1, uint32_t* tmap2, uint32_t* tmap3, std::string nexusfilename){
   /*----------------------------------------------*/
   std::cout << "SaveNeXusFile" << std::endl;
@@ -668,7 +935,8 @@ int main(int argc, char *argv[])
   LoadMonitorFile(tmap2, tranfile2); 
   LoadMonitorFile(tmap3, tranfile3); 
   PrintDMap(dmap);
-  SaveNexusFile(dmap,mmap1,mmap2,tmap1,tmap2,tmap3,nexusfile);
+  //SaveNexusFile(dmap,mmap1,mmap2,tmap1,tmap2,tmap3,nexusfile);
+  SaveNexusFile2(dmap,mmap1,mmap2,tmap1,tmap2,tmap3,nexusfile);
 
 
 
