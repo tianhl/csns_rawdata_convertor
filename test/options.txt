@@ -1,0 +1,32 @@
+#directbeam   = no
+## Sample_main_det_tof
+#samplefile   = /home/tianhl/workarea/CSNS_SANS_SIM/sample/sans_run/sample_sans_D.txt
+#binaryfile   = /home/tianhl/workarea/CSNS_SANS_SIM/app/test/sample_sans.raw
+## Sample_monitor_tof
+#monitorfile1 = /home/tianhl/workarea/CSNS_SANS_SIM/sample/sans_run/sample_sans_M1.txt
+#monitorfile2 = /home/tianhl/workarea/CSNS_SANS_SIM/sample/sans_run/sample_sans_M2.txt
+#nexusfile    = /home/tianhl/workarea/CSNS_SANS_SIM/app/test/sample_sans.nxs
+## Sample_trans_monitor
+#tranfile1    = /home/tianhl/workarea/CSNS_SANS_SIM/sample/trans_run/sample_trans_M1.txt
+#tranfile2    = /home/tianhl/workarea/CSNS_SANS_SIM/sample/trans_run/sample_trans_M2.txt
+#tranfile3    = /home/tianhl/workarea/CSNS_SANS_SIM/sample/trans_run/sample_trans_M3.txt
+
+#directbeam   = no
+## Can_main_det_tof
+#samplefile   = /home/tianhl/workarea/CSNS_SANS_SIM/cell/sans_run/can_sans_D.txt
+#binaryfile   = /home/tianhl/workarea/CSNS_SANS_SIM/app/test/can_sans.raw
+## Can_monitor_tof
+#monitorfile1 = /home/tianhl/workarea/CSNS_SANS_SIM/cell/sans_run/cell_sans_M1.txt
+#monitorfile2 = /home/tianhl/workarea/CSNS_SANS_SIM/cell/sans_run/cell_sans_M2.txt
+#nexusfile    = /home/tianhl/workarea/CSNS_SANS_SIM/app/test/can_sans.nxs
+## Can_trans_monitor
+#tranfile1    = /home/tianhl/workarea/CSNS_SANS_SIM/cell/sans_run/cell_sans_M1.txt
+#tranfile2    = /home/tianhl/workarea/CSNS_SANS_SIM/cell/sans_run/cell_sans_M2.txt
+#tranfile3    = /home/tianhl/workarea/CSNS_SANS_SIM/cell/trans_run/cell_trans_M3.txt
+
+directbeam   = yes
+# direct_tof
+nexusfile    = /home/tianhl/workarea/CSNS_SANS_SIM/app/test/directbeam.nxs
+tranfile1    = /home/tianhl/workarea/CSNS_SANS_SIM/direct/direct_trans_M1.txt
+tranfile2    = /home/tianhl/workarea/CSNS_SANS_SIM/direct/direct_trans_M2.txt
+tranfile3    = /home/tianhl/workarea/CSNS_SANS_SIM/direct/direct_trans_M3.txt
